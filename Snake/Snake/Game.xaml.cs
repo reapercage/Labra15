@@ -9,6 +9,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
@@ -97,7 +98,11 @@ namespace Snake
             paintCanvas.Children.Add(snake);
             snakeParts.Add(currentPosition);
             //rajoitetaan käärmeen pituutta
-            //TODO
+            if(count > snakeLength)
+            {
+                paintCanvas.Children.RemoveAt(count - snakeLength + (bonusCount - 1));
+                snakeParts.RemoveAt(count - snakeLength);
+            }
         }
         private void OnButtonKeyDown(object sender, KeyEventArgs e)
         {
@@ -112,7 +117,10 @@ namespace Snake
                         timer.Start();
                     break;
                 case Key.Escape:
-                    GameOver();
+                    if (timer.IsEnabled)
+                        GameOver();
+                    else
+                        this.Close();
                     break;
                 case Key.Left:
                     if (lastDirection != Direction.Right)
@@ -176,6 +184,13 @@ namespace Snake
                 {
                     //syödään omena
                     score += 10;
+                    snakeLength += 10;
+                    //nopeutetaan peliä
+                    if(easiness > 5)
+                    {
+                        easiness--;
+                        timer.Interval = new TimeSpan(0, 0, 0, 0, easiness);
+                    }
                     this.Title = "SnakeWPF your score: " + score;
                     bonusPoints.RemoveAt(n);
                     paintCanvas.Children.RemoveAt(n);
@@ -189,12 +204,20 @@ namespace Snake
         private void GameOver()
         {
             timer.Stop();
-            MessageBox.Show("Your score: " + score);
-            this.Close();        
+            //MessageBox.Show("Your score: " + score);
+            //this.Close();        
+            GameOverShow();
         }
         private void GameOverShow()
         {
-            //TODO
+            //txtMessage.Text = "Your score: " + score + "\npress Esc to quit";
+            //paintCanvas.Children.Add(txtMessage);
+            //animaatio joka siirtää kanvaasin
+            var trs = new TranslateTransform();
+            var anim = new DoubleAnimation(0, 620, TimeSpan.FromSeconds(15));
+            trs.BeginAnimation(TranslateTransform.XProperty, anim);
+            trs.BeginAnimation(TranslateTransform.YProperty, anim);
+            paintCanvas.RenderTransform = trs;
         }
     }
 }
