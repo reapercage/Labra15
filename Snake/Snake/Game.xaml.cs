@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace Snake
 {
@@ -43,18 +44,23 @@ namespace Snake
         private Direction lastDirection = Direction.Right;
         private Direction currentDirection = Direction.Right; //alussa lähtee aina oikealle
         private Random rnd = new Random(); //pisteiden arvontaa varten
+        private DispatcherTimer timer;
 
         public Game()
         {
             InitializeComponent();
             //tarvittavat alustukset
-
+            timer = new DispatcherTimer();
+            timer.Interval = new TimeSpan(0, 0, 0, 0, easiness);
+            timer.Tick += new EventHandler(timer_Tick);
+            //määritellään ikkunalle tapahtumankäsittelijä näppäimistön kuuntelua varten
+            this.KeyDown += new KeyEventHandler(OnButtonKeyDown);
             //piirretään omenat ja käärme
             IniBonusPoints();
             PaintSnake(startingPoint);
             currentPosition = startingPoint;
-
             //start game
+            timer.Start();
         }
 
         private void IniBonusPoints()
@@ -93,9 +99,96 @@ namespace Snake
             //rajoitetaan käärmeen pituutta
             //TODO
         }
+        private void OnButtonKeyDown(object sender, KeyEventArgs e)
+        {
+            //muutetaan suuntaa näppäimistön painalluksen mukaan
+            //mutta ei sallita 180 asteen käännöstä
+            switch (e.Key)
+            {
+                case Key.P:
+                    if (timer.IsEnabled)
+                        timer.Stop();
+                    else
+                        timer.Start();
+                    break;
+                case Key.Escape:
+                    GameOver();
+                    break;
+                case Key.Left:
+                    if (lastDirection != Direction.Right)
+                        currentDirection = Direction.Left;
+                    break;
+                case Key.Up:
+                    if (lastDirection != Direction.Down)
+                        currentDirection = Direction.Up;
+                    break;
+                case Key.Right:
+                    if (lastDirection != Direction.Left)
+                        currentDirection = Direction.Right;
+                    break;
+                case Key.Down:
+                    if (lastDirection != Direction.Up)
+                        currentDirection = Direction.Down;
+                    break;
+            }
+            lastDirection = currentDirection;
+        }
+        private void timer_Tick(object sender, EventArgs e)
+        {
+            switch (currentDirection)
+            {
+                case Direction.Up:
+                    currentPosition.Y -= 1;
+                    break;
+                case Direction.Right:
+                    currentPosition.X += 1;
+                    break;
+                case Direction.Down:
+                    currentPosition.Y += 1;
+                    break;
+                case Direction.Left:
+                    currentPosition.X -= 1;
+                    break;
+                default:
+                    break;
+            }
+            PaintSnake(currentPosition);
+            //törmäystarkastelu 1-3
+            //TT#1 tarkistetaan onko kanvaasilla
+            if((currentPosition.X > MaxWidth) || (currentPosition.X < minimi) ||
+              (currentPosition.Y > maxHeight) || (currentPosition.Y < minimi))
+              GameOver();
+            //TT#2 tarkistetaan ettei pure omaa häntäänsä
+            for (int i = 0; i < snakeParts.Count - snakeWidth * 2; i++)
+            {
+                Point p = new Point(snakeParts[i].X, snakeParts[i].Y);
+                if ((Math.Abs(p.X - currentPosition.X) < snakeWidth) &&
+                    (Math.Abs(p.Y - currentPosition.Y) < snakeWidth))
+                    GameOver();
+            }
+            //TT#3
+            //tarkistetaan osuuko omenaan
+            int n = 0;
+            foreach (Point point in bonusPoints)
+            {
+                if ((Math.Abs(point.X - currentPosition.X) < snakeWidth) &&
+                    Math.Abs(point.Y - currentPosition.Y) < snakeWidth)
+                {
+                    //syödään omena
+                    score += 10;
+                    this.Title = "SnakeWPF your score: " + score;
+                    bonusPoints.RemoveAt(n);
+                    paintCanvas.Children.RemoveAt(n);
+                    PaintBonus(n);
+                    break;
+                }
+                n++;
+            }
+        }
 
         private void GameOver()
         {
+            timer.Stop();
             MessageBox.Show("Your score: " + score);
             this.Close();        
         }
